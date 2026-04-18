@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "contingency-dsl-reader"
+dynamic = ["version"]
+description = "Extract contingency-dsl AST from academic paper Method sections (JEAB/JABA)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+llm = ["anthropic>=0.40"]
+test = ["pytest>=8", "pytest-cov"]
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/contingency_dsl_reader/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/contingency_dsl_reader"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
