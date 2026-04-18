@@ -1,13 +1,13 @@
-# contingency-dsl-reader
+# contingency-procedure2dsl
 
 :gb: [English README](README.md)
 
-学術論文の Method セクションから [contingency-dsl](../contingency-dsl/) AST を抽出する。
+学術論文の Method セクションから [contingency-dsl](https://github.com/OperantKit/contingency-dsl) AST を抽出する。
 
-[contingency-dsl-paper](../contingency-dsl-paper/)（DSL → 論文）の逆方向。
+[contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure)（DSL → 論文）の逆方向。
 
 ```python
-from contingency_dsl_reader import extract_schedule
+from contingency_procedure2dsl import extract_schedule
 
 text = "Responses were reinforced under a concurrent VI 30-s VI 60-s schedule."
 result = extract_schedule(text)
@@ -18,15 +18,15 @@ print(result.ast)
 # ]}
 print(result.confidence)  # 0.95
 
-# 曖昧なテキストへの LLM フォールバック（オプトイン: pip install contingency-dsl-reader[llm]）
-from contingency_dsl_reader import extract_schedule_llm
+# 曖昧なテキストへの LLM フォールバック（オプトイン: pip install contingency-procedure2dsl[llm]）
+from contingency_procedure2dsl import extract_schedule_llm
 result = extract_schedule_llm(ambiguous_text, model="claude-sonnet-4-6")
 ```
 
 ## カバレッジ
 
-Layer 1（ルールベース）は、[contingency-dsl-paper](../contingency-dsl-paper/) が
-曖昧さなく散文として emit する限り、[contingency-dsl](../contingency-dsl/) の
+Layer 1（ルールベース）は、[contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure) が
+曖昧さなく散文として emit する限り、[contingency-dsl](https://github.com/OperantKit/contingency-dsl) の
 全てのサーフェスをカバーする:
 
 - Atomic スケジュール: F/V/R × R/I/T（FR, VR, RR, FI, VI, RI, FT, VT, RT）

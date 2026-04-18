@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "contingency-dsl-reader"
+name = "contingency-procedure2dsl"
 dynamic = ["version"]
 description = "Extract contingency-dsl AST from academic paper Method sections (JEAB/JABA)."
 readme = "README.md"
@@ -20,10 +20,10 @@ source = "vcs"
 fallback-version = "0.0.0"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/contingency_dsl_reader/_version.py"
+version-file = "src/contingency_procedure2dsl/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/contingency_dsl_reader"]
+packages = ["src/contingency_procedure2dsl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

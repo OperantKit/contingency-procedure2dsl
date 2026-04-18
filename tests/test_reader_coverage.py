@@ -2,8 +2,8 @@
 
 import pytest
 
-from contingency_dsl_reader import extract_schedule, extract_all
-from contingency_dsl_reader.extractors.schedule import extract_atomic_schedules
+from contingency_procedure2dsl import extract_schedule, extract_all
+from contingency_procedure2dsl.extractors.schedule import extract_atomic_schedules
 
 
 # --- Full name extraction (English) ---

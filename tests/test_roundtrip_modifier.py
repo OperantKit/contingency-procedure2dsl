@@ -1,7 +1,7 @@
 """Phase 3: Modifier + Aversive roundtrip tests."""
 
-from contingency_dsl_paper import compile_method
-from contingency_dsl_reader import extract_schedule
+from contingency_dsl2procedure import compile_method
+from contingency_procedure2dsl import extract_schedule
 
 
 def _program(schedule: dict) -> dict:

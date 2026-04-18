@@ -1,11 +1,11 @@
 """Roundtrip tests: DSL AST → paper → reader → AST.
 
-Verifies that contingency-dsl-paper output can be round-tripped through
-contingency-dsl-reader to recover the original schedule structure.
+Verifies that contingency-dsl2procedure output can be round-tripped through
+contingency-procedure2dsl to recover the original schedule structure.
 """
 
-from contingency_dsl_paper import compile_method
-from contingency_dsl_reader import extract_schedule
+from contingency_dsl2procedure import compile_method
+from contingency_procedure2dsl import extract_schedule
 
 
 def _program(schedule: dict) -> dict:

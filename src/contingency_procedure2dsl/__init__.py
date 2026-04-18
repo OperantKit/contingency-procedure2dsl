@@ -1,4 +1,4 @@
-"""contingency-dsl-reader: Extract contingency-dsl AST from academic paper text.
+"""contingency-procedure2dsl: Extract contingency-dsl AST from academic paper text.
 
 Layer 1 (rule-based, stdlib only):
     extract_schedule(text) -> ExtractResult
@@ -8,7 +8,7 @@ Layer 1 (rule-based, stdlib only):
     extract_experiments(text) -> list[ExtractResult]
     extract_paper(text) -> ExtractResult | None
 
-Layer 2 (LLM, opt-in via `pip install contingency-dsl-reader[llm]`):
+Layer 2 (LLM, opt-in via `pip install contingency-procedure2dsl[llm]`):
     extract_schedule_llm(text, model=...) -> ExtractResult
     extract_all_with_fallback(text, model=...) -> ExtractionReport
 """

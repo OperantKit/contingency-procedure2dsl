@@ -179,7 +179,7 @@ def extract_all_with_fallback(
     Runs Layer 1 (regex) first. If no schedule is found or confidence
     is below threshold, falls back to Layer 2 (LLM).
 
-    Requires: pip install contingency-dsl-reader[llm]
+    Requires: pip install contingency-procedure2dsl[llm]
     """
     report = extract_all(text)
 

@@ -1,13 +1,13 @@
-# contingency-dsl-reader
+# contingency-procedure2dsl
 
 :jp: [日本語版 README](README.ja.md)
 
-Extract [contingency-dsl](../contingency-dsl/) AST from academic paper Method sections.
+Extract [contingency-dsl](https://github.com/OperantKit/contingency-dsl) AST from academic paper Method sections.
 
-Reverse of [contingency-dsl-paper](../contingency-dsl-paper/) (DSL → paper).
+Reverse of [contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure) (DSL → paper).
 
 ```python
-from contingency_dsl_reader import extract_schedule
+from contingency_procedure2dsl import extract_schedule
 
 text = "Responses were reinforced under a concurrent VI 30-s VI 60-s schedule."
 result = extract_schedule(text)
@@ -18,14 +18,14 @@ print(result.ast)
 # ]}
 print(result.confidence)  # 0.95
 
-# LLM fallback for ambiguous text (opt-in: pip install contingency-dsl-reader[llm])
-from contingency_dsl_reader import extract_schedule_llm
+# LLM fallback for ambiguous text (opt-in: pip install contingency-procedure2dsl[llm])
+from contingency_procedure2dsl import extract_schedule_llm
 result = extract_schedule_llm(ambiguous_text, model="claude-sonnet-4-6")
 ```
 
 ## Coverage
 
-Layer 1 (rule-based) covers the full [contingency-dsl](../contingency-dsl/) surface area for constructs that [contingency-dsl-paper](../contingency-dsl-paper/) emits as non-ambiguous prose:
+Layer 1 (rule-based) covers the full [contingency-dsl](https://github.com/OperantKit/contingency-dsl) surface area for constructs that [contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure) emits as non-ambiguous prose:
 
 - Atomic schedules: F/V/R × R/I/T (FR, VR, RR, FI, VI, RI, FT, VT, RT)
 - Special: EXT, CRF

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from contingency_dsl_paper import compile_method
-from contingency_dsl_reader import extract_all, extract_schedule
+from contingency_dsl2procedure import compile_method
+from contingency_procedure2dsl import extract_all, extract_schedule
 
 
 def _program(schedule, param_decls=None, program_annotations=None):

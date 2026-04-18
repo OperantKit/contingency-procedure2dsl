@@ -5,8 +5,8 @@ Each test: AST → paper prose → reader extraction → verify AST recovered.
 
 import pytest
 
-from contingency_dsl_paper import compile_method
-from contingency_dsl_reader import extract_schedule, extract_all
+from contingency_dsl2procedure import compile_method
+from contingency_procedure2dsl import extract_schedule, extract_all
 
 
 def _program(schedule: dict, **kw) -> dict:

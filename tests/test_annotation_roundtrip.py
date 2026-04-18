@@ -3,8 +3,8 @@
 Tests: annotated AST → paper prose → reader extraction → verify annotations recovered.
 """
 
-from contingency_dsl_paper import compile_method
-from contingency_dsl_reader import extract_all
+from contingency_dsl2procedure import compile_method
+from contingency_procedure2dsl import extract_all
 
 
 def _full_program() -> dict:

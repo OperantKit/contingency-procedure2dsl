@@ -1,6 +1,6 @@
 """Layer 2: LLM-based extraction (opt-in).
 
-Requires: pip install contingency-dsl-reader[llm]
+Requires: pip install contingency-procedure2dsl[llm]
 
 Uses Claude API to extract schedule information from ambiguous or
 non-standard Method section text that Layer 1 regex patterns cannot handle.
@@ -101,7 +101,7 @@ def extract_schedule_llm(
     except ImportError:
         raise ImportError(
             "LLM extraction requires the anthropic package. "
-            "Install with: pip install contingency-dsl-reader[llm]"
+            "Install with: pip install contingency-procedure2dsl[llm]"
         )
 
     client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()

@@ -9,11 +9,11 @@ headings, split the document, and emit one Experiment per segment.
 
 from __future__ import annotations
 
-from contingency_dsl_reader.extractors.experiment import (
+from contingency_procedure2dsl.extractors.experiment import (
     detect_experiment_boundaries,
     extract_experiments,
 )
-from contingency_dsl_reader.pipeline import extract_paper
+from contingency_procedure2dsl.pipeline import extract_paper
 
 
 class TestDetectBoundaries:

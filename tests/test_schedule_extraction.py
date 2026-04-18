@@ -1,6 +1,6 @@
 """Tests for schedule extraction from JEAB/JABA text."""
 
-from contingency_dsl_reader import extract_schedule, extract_all
+from contingency_procedure2dsl import extract_schedule, extract_all
 
 
 class TestAtomicExtraction:

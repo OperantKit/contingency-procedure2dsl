@@ -1,6 +1,6 @@
 """Reverse vocabulary: natural language terms → DSL components.
 
-Inverts the mapping from contingency-dsl-paper's vocabulary.py.
+Inverts the mapping from contingency-dsl2procedure's vocabulary.py.
 Supports both JEAB (English) and JABA (Japanese) terminology.
 """
 
