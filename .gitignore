@@ -26,13 +26,14 @@ htmlcov/
 *.db
 
 # Scratch / drafts / planning — gitignored per operantkit policy
-# See operantkit/.claude/rules/common/local-scratch-and-privacy.md
+# Package-local scratch / planning / draft / review traces
 .local/
 tmp/
 PLAN.md
 
-# uv is prohibited by operantkit/CLAUDE.md; ignore lockfiles if created by tooling
+# uv package manager is banned; any accidental uv.lock must not be tracked.
 uv.lock
 
 # hatch-vcs generated version file (derived from git tag)
 src/contingency_procedure2dsl/_version.py
+.venv-fresh/
