@@ -19,11 +19,54 @@ _SPECIES = {
     "ラット": "rat", "ハト": "pigeon", "マウス": "mouse",
 }
 
+# Human-participant terms. These map to @species("human") with an optional
+# @population tag capturing the developmental/role descriptor.
+_HUMAN_TERMS = {
+    "children": "children", "child": "children",
+    "adults": "adults", "adult": "adults",
+    "infants": "infants", "infant": "infants",
+    "adolescents": "adolescents", "adolescent": "adolescents",
+    "students": "students", "student": "students",
+    "participants": "participants", "participant": "participants",
+    "humans": "humans", "human": "humans",
+    "individuals": "individuals", "individual": "individuals",
+    "boys": "children", "girls": "children",
+    "men": "adults", "women": "adults",
+    "子ども": "children", "児童": "children", "学生": "students",
+    "大人": "adults", "成人": "adults",
+}
+
+_HUMAN_PATTERN = re.compile(
+    r"\b(\w+)\s+"
+    r"(?:(?:typical(?:ly)?\s+developing|male|female|adult|young|older|healthy)\s+)*"
+    r"(" + "|".join(re.escape(s) for s in _HUMAN_TERMS) + r")\b",
+    re.IGNORECASE,
+)
+
+# Matches compile_method's output form "human served as subjects" / "humans
+# served as subjects" so the species round-trips even when no count is
+# carried through.
+_HUMAN_ONLY_PATTERN = re.compile(
+    r"\b(humans?|children|adults?|infants?|adolescents?|students?|participants?)\b"
+    r"\s+(?:served\s+as\s+subjects|were\s+(?:the\s+)?subjects)",
+    re.IGNORECASE,
+)
+
 _N_SPECIES_PATTERN = re.compile(
     r"\b(\w+)\s+"
     r"(?:(?:male|female|naive|experimentally\s+naive)\s+)*"
     r"(?:(\S+)\s+)?"
     r"(" + "|".join(re.escape(s) for s in _SPECIES) + r")\b",
+    re.IGNORECASE,
+)
+
+# Subject sentences without a leading count. Matches the canonical form
+# produced by ``contingency_dsl2procedure.sections.subjects`` when n is
+# unknown ("rat served as subjects", "Pigeons served as subjects"), so
+# a compile → re-extract round-trip converges even without a count.
+_SPECIES_ONLY_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(s) for s in _SPECIES) + r")\b"
+    r"\s+(?:served\s+as\s+subjects|were\s+(?:the\s+)?subjects|pressed|pecked)",
     re.IGNORECASE,
 )
 
@@ -40,6 +83,30 @@ _DEPRIVATION_JA_PATTERN = re.compile(
 )
 
 
+_STRAIN_STOPWORDS = frozenset({
+    "a", "an", "the", "of", "in", "by", "for", "with", "and", "or", "to",
+    "as", "at", "on", "from", "that", "this", "those", "these", "his", "her",
+    "its", "their", "our", "my", "your", "is", "was", "were", "be", "been",
+    "being", "had", "has", "have", "cold", "warm", "hot", "wild", "white",
+    "black", "gray", "male", "female", "naive", "experimental", "control",
+    "trained", "observed", "other", "another", "many", "few", "several",
+    "some", "all", "each", "every",
+})
+
+
+def _is_species_false_positive(text: str, match: re.Match, species_raw: str) -> bool:
+    """Guard against non-biological senses of species words.
+
+    The obvious case: "mouse clicks", "mouse cursor", "mouse button" where
+    "mouse" refers to a computer pointing device, not an animal.
+    """
+    if species_raw.lower() == "mouse":
+        tail = text[match.end(): match.end() + 40].lower()
+        if re.match(r"\s*(click|clicks|button|cursor|pointer|pad|wheel|over|\-)", tail):
+            return True
+    return False
+
+
 def extract_subject_annotations(text: str) -> list[ExtractResult]:
     """Extract @species, @strain, @n, @deprivation, @history from text."""
     results: list[ExtractResult] = []
@@ -51,12 +118,95 @@ def extract_subject_annotations(text: str) -> list[ExtractResult]:
         species = _SPECIES.get(species_raw.lower(), species_raw)
         n = _word_to_number(n_word)
 
+        # Context guard: "mouse" often refers to a computer mouse, not an animal.
+        if _is_species_false_positive(text, m, species_raw):
+            continue
+
+        # Strain stopword filter: common articles/adjectives are not strain names.
+        if strain and strain.lower() in _STRAIN_STOPWORDS:
+            strain = ""
+
+        # Gate out spurious matches like "Imagine a rat", "and the rat",
+        # "for a cold rat": if neither a valid count nor a plausible strain
+        # name is present, the surrounding context is probably generic prose
+        # rather than a real subject description.
+        strain_looks_real = bool(strain) and (strain[0].isupper() or "-" in strain)
+
+        # "Carneau pigeon" / "Wistar rat" — a proper-noun first word with
+        # no optional-strain slot. Shift it from n_word to strain so the
+        # strain information isn't lost when the regex's strain slot was
+        # skipped. Guard against species-name self-reference at sentence
+        # start ("Pigeon served as subjects." → don't promote "Pigeon"
+        # to a strain).
+        if (
+            n is None
+            and not strain
+            and n_word
+            and n_word[0].isupper()
+            and n_word.lower() not in _STRAIN_STOPWORDS
+            and n_word.lower() not in _SPECIES
+            and n_word.lower() not in _HUMAN_TERMS
+        ):
+            strain = n_word
+            strain_looks_real = True
+
+        if n is None and not strain_looks_real:
+            # Extra guard: also skip if n_word is a known stopword/article.
+            if n_word.lower() in _STRAIN_STOPWORDS:
+                continue
+            # Otherwise keep @species only; don't emit @strain/@n.
+            if species:
+                results.append(_ann_result("species", species, m))
+            continue
+
         if species:
             results.append(_ann_result("species", species, m))
         if strain:
             results.append(_ann_result("strain", strain, m))
         if n is not None:
             results.append(_ann_result("n", n, m))
+
+    # Human-participant pattern. Emits @species("human") plus an optional
+    # @population tag (children/adults/...) and @n when a count is present.
+    # Gating: require a valid count or a descriptor like "typically developing"
+    # before the population term so generic prose ("the participants performed
+    # the task...") isn't treated as a subject description.
+    for m in _HUMAN_PATTERN.finditer(text):
+        n_word = m.group(1)
+        term_raw = m.group(2).lower()
+        population = _HUMAN_TERMS.get(term_raw, term_raw)
+        n = _word_to_number(n_word)
+
+        # Reject generic references: "the children", "our participants" etc.
+        if n is None and n_word.lower() in _STRAIN_STOPWORDS:
+            continue
+        # Reject when neither a count nor a descriptor (male/female/typically)
+        # precedes the population term — plain "the participants" is prose.
+        if n is None:
+            before = text[max(0, m.start() - 40): m.start()].lower()
+            if not re.search(
+                r"(typical(?:ly)?\s+developing|male|female|adult|young|older|healthy)\s*$",
+                before,
+            ):
+                continue
+
+        results.append(_ann_result("species", "human", m))
+        if population and population not in {"subjects", "participants", "individuals", "humans"}:
+            results.append(_ann_result("population", population, m))
+        if n is not None:
+            results.append(_ann_result("n", n, m))
+
+    # Species-only pattern for texts like "rat served as subjects."
+    for m in _SPECIES_ONLY_PATTERN.finditer(text):
+        species_raw = m.group(1)
+        species = _SPECIES.get(species_raw.lower(), species_raw)
+        if _is_species_false_positive(text, m, species_raw):
+            continue
+        if species:
+            results.append(_ann_result("species", species, m, confidence=0.70))
+
+    for m in _HUMAN_ONLY_PATTERN.finditer(text):
+        results.append(_ann_result("species", "human", m, confidence=0.70))
 
     for m in _N_JA_PATTERN.finditer(text):
         n = int(m.group(1))
@@ -234,12 +384,23 @@ def extract_component_annotations(text: str) -> list[ExtractResult]:
             span=(m.start(), m.end()), source_text=m.group(0),
         ))
 
-    # RT-R03: @sd — "in the presence of red light"
+    # RT-R03: @sd — "in the presence of red light" / "in the presence of the SD"
+    # Require the SD name to be a concrete stimulus-like token (alphanumeric,
+    # no trailing punctuation). Skip generic phrases like "those stimuli",
+    # "his or her peers" etc.
+    _SD_STOPWORDS = {
+        "the", "a", "an", "this", "that", "those", "these", "such", "other",
+        "his", "her", "their", "its", "our", "your", "some", "any", "all",
+    }
     for m in re.finditer(
-        r"in\s+the\s+presence\s+of\s+(\S+(?:\s+\S+)?)",
+        r"in\s+the\s+presence\s+of\s+([A-Za-z][\w]*(?:\s+[A-Za-z][\w]*)?)",
         text, re.IGNORECASE,
     ):
-        sd_name = m.group(1).replace(" ", "_")
+        sd_raw = m.group(1).rstrip(",.;:").strip()
+        first_token = sd_raw.split()[0].lower() if sd_raw else ""
+        if not sd_raw or first_token in _SD_STOPWORDS:
+            continue
+        sd_name = sd_raw.replace(" ", "_")
         results.append(ExtractResult(
             ast={"type": "Annotation", "keyword": "sd", "positional": sd_name},
             confidence=0.75,

@@ -128,12 +128,72 @@ def extract_all(text: str) -> ExtractionReport:
     annotations.extend(extract_measurement_annotations(text))
     annotations.extend(extract_procedure_annotations(text))
     annotations.extend(extract_component_annotations(text))
+    annotations = _dedupe_annotations(annotations)
 
     return ExtractionReport(
         schedules=tuple(schedules),
         params=tuple(params),
         annotations=tuple(annotations),
     )
+
+
+_SINGLETON_KEYWORDS = frozenset({
+    # Subject-level facts that describe one cohort. When the Method text
+    # mentions multiple values (typically from cross-study citations in the
+    # Discussion), keep only the first mention so the paper-compile pass
+    # produces a matching re-extraction on round-trip.
+    "species", "strain", "n", "deprivation", "history", "population",
+})
+
+
+def _dedupe_annotations(anns: list[ExtractResult]) -> list[ExtractResult]:
+    """Collapse duplicate annotations to the single highest-confidence hit.
+
+    Two levels of dedup:
+
+    1. Tuple-level: same (keyword, positional, params) → keep the highest
+       confidence occurrence.
+    2. Keyword-level (for singleton keywords only): multiple @species (or
+       @strain, @n, ...) are collapsed to the first distinct value. This
+       prevents a paper whose Discussion cites cross-species literature
+       from producing a multi-@species Program whose compile → re-extract
+       round-trip doesn't converge.
+
+    Free-form list-style keywords (e.g. @reinforcer, @sd) are left alone.
+    """
+    import json as _json
+
+    def _tuple_key(r: ExtractResult) -> str:
+        ast = r.ast
+        return _json.dumps(
+            {k: ast.get(k) for k in ("keyword", "positional", "params")},
+            sort_keys=True, ensure_ascii=False, default=str,
+        )
+
+    # Step 1: tuple-level dedup keeping best confidence.
+    best: dict[str, ExtractResult] = {}
+    for r in anns:
+        key = _tuple_key(r)
+        prior = best.get(key)
+        if prior is None or r.confidence > prior.confidence:
+            best[key] = r
+
+    # Preserve first-appearance order when emitting.
+    ordered: list[ExtractResult] = []
+    seen_keys: set[str] = set()
+    seen_singleton: set[str] = set()
+    for r in anns:
+        key = _tuple_key(r)
+        if key in seen_keys:
+            continue
+        kw = r.ast.get("keyword", "")
+        if kw in _SINGLETON_KEYWORDS and kw in seen_singleton:
+            continue
+        seen_keys.add(key)
+        if kw in _SINGLETON_KEYWORDS:
+            seen_singleton.add(kw)
+        ordered.append(best[key])
+    return ordered
 
 
 def extract_paper(text: str) -> ExtractResult | None:
@@ -154,10 +214,31 @@ def extract_paper(text: str) -> ExtractResult | None:
     if len(experiments) < 2:
         return None
 
+    # Attach general-method preamble (text before the first Experiment
+    # heading) as Paper-level shared annotations, so subject/apparatus
+    # info described once at the top applies to every experiment.
+    # Apply the same singleton-keyword collapse as extract_all so that
+    # keys like ``n`` / ``species`` keep only the first value.
+    preamble_end = experiments[0].span[0] if experiments[0].span else 0
+    preamble = text[:preamble_end].strip()
+    shared_annotations: list[dict] = []
+    if preamble:
+        from .extractors.annotations import (
+            extract_subject_annotations,
+            extract_apparatus_annotations,
+        )
+        raw = (
+            extract_subject_annotations(preamble)
+            + extract_apparatus_annotations(preamble)
+        )
+        shared_annotations = [r.ast for r in _dedupe_annotations(raw)]
+
     ast = {
         "type": "Paper",
         "experiments": [r.ast for r in experiments],
     }
+    if shared_annotations:
+        ast["shared_annotations"] = shared_annotations
     confidence = min(r.confidence for r in experiments)
     return ExtractResult(
         ast=ast,
