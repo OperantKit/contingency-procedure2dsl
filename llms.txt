@@ -1,0 +1,42 @@
+# contingency-procedure2dsl
+
+> Extracts contingency-dsl AST dicts (reinforcement schedules, changeover delay and other parameters, subject/apparatus annotations, phases, experiments) from the prose of JEAB/JABA-style Method sections. The rule-based extractor is deterministic and has no runtime dependencies; an optional LLM fallback uses the Anthropic API.
+
+contingency-procedure2dsl is part of OperantKit, a set of Python/Rust packages for designing and running operant and respondent conditioning experiments (reinforcement schedules, session recording, analysis). Use it instead of writing regular expressions over Method text: it recognizes atomic, compound, second-order, modifier, aversive, adjusting, interlocking, trial-based, and respondent procedures, and is tested by round-tripping ASTs through contingency-dsl2procedure.
+
+## Install
+
+```bash
+pip install git+https://github.com/OperantKit/contingency-procedure2dsl
+```
+
+The optional LLM fallback needs the `llm` extra: `pip install "contingency-procedure2dsl[llm] @ git+https://github.com/OperantKit/contingency-procedure2dsl"` and `ANTHROPIC_API_KEY`.
+
+## Minimal example
+
+```python
+from contingency_procedure2dsl import extract_all
+
+report = extract_all(
+    "Responses were reinforced under a concurrent VI 30-s VI 60-s schedule "
+    "with a 2-s changeover delay."
+)
+print(report.primary_schedule.ast["combinator"])  # Conc
+print([(p.ast["name"], p.ast["value"]) for p in report.params])  # [('COD', 2.0)]
+program = report.to_program()  # Program AST dict (contingency-dsl AST schema)
+```
+
+The import name is `contingency_procedure2dsl`. `extract_schedule(text)` returns the highest-confidence schedule (`ExtractResult` with `ast`, `confidence`, `span`, `source_text`) or `None`. `extract_phase_sequence(text)` and `extract_paper(text)` return `PhaseSequence` and `Paper` ASTs. `extract_all_with_fallback(text)` calls the LLM only when the rule-based result is missing or below a confidence threshold.
+
+## Docs
+
+- [README](https://github.com/OperantKit/contingency-procedure2dsl/blob/main/README.md): install, 30-second example, why not to hand-roll a regex, coverage and known limitations
+- [AGENTS.md](https://github.com/OperantKit/contingency-procedure2dsl/blob/main/AGENTS.md): when to use this package and what not to do
+
+## Related packages
+
+- [contingency-dsl](https://github.com/OperantKit/contingency-dsl): the language specification and AST schema the output follows
+- [contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure): the reverse direction, AST dict to Method-section text (`pip install git+https://github.com/OperantKit/contingency-dsl2procedure`)
+- [contingency-dsl-py](https://github.com/OperantKit/contingency-dsl-py): parser and formatter; `from_dict` + `format_program` turn the extracted Program into DSL source (`pip install contingency-dsl-py`)
+- [contingency-py](https://github.com/OperantKit/contingency-py): runs a schedule as a reinforcement schedule engine (`pip install contingency-py`)
+- [contingency-respondent-dsl](https://github.com/OperantKit/contingency-respondent-dsl): respondent (Pavlovian) procedure extension of the language (`pip install git+https://github.com/OperantKit/contingency-respondent-dsl`)
