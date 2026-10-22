@@ -24,6 +24,7 @@ from __future__ import annotations
 import re
 
 from ..result import ExtractResult
+from ..vocab_reverse import SPECIAL_REVERSE
 
 # Pattern 1: explicit phase markers — "In the acquisition phase, ..."
 #            "【獲得】..." or "獲得フェーズ..."
@@ -108,6 +109,17 @@ def _detect_criterion(body: str) -> dict | None:
     return None
 
 
+def _schedule_from_label(label: str) -> dict | None:
+    """Return a Special schedule when the phase label itself names one.
+
+    "In the extinction phase, responses no longer produced reinforcers"
+    states the schedule only through the label. Whole-label match only, so
+    labels such as "extended training" are not read as EXT.
+    """
+    kind = SPECIAL_REVERSE.get(label.strip().lower())
+    return {"type": "Special", "kind": kind} if kind else None
+
+
 def extract_phase_sequence(text: str) -> ExtractResult | None:
     """Extract a PhaseSequence from multi-phase Method-section text.
 
@@ -142,7 +154,7 @@ def extract_phase_sequence(text: str) -> ExtractResult | None:
     for label, body in boundaries:
         phase_report = extract_all(body)
         primary = phase_report.primary_schedule
-        schedule = primary.ast if primary else None
+        schedule = primary.ast if primary else _schedule_from_label(label)
         phase: dict = {
             "type": "Phase",
             "label": label,

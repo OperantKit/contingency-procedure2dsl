@@ -218,3 +218,58 @@ class TestExtractPhaseSequence:
         labels = [p["label"] for p in ast["phases"]]
         assert "獲得" in labels
         assert "消去" in labels
+
+
+class TestExtinctionPhaseSchedule:
+    """A phase labelled "extinction" whose body names no schedule is EXT."""
+
+    _EXT = {"type": "Special", "kind": "EXT"}
+
+    @pytest.mark.parametrize(
+        "ext_body",
+        [
+            "responses no longer produced reinforcers.",
+            "responses had no programmed consequences.",
+            "reinforcement was discontinued.",
+            "subjects were then placed on extinction for 5 sessions.",
+        ],
+    )
+    def test_english_extinction_phase_is_ext(self, ext_body: str) -> None:
+        text = (
+            "In the baseline phase, responses were reinforced on a VI 30-s "
+            f"schedule. In the extinction phase, {ext_body}"
+        )
+        result = extract_phase_sequence(text)
+        assert result is not None
+        ext = result.ast["phases"][1]
+        assert ext["label"] == "extinction"
+        assert ext["schedule"] == self._EXT
+
+    def test_japanese_extinction_phase_is_ext(self) -> None:
+        text = (
+            "【獲得】VI 30-s スケジュールに従って反応が強化された。"
+            "【消去】反応は強化されなかった。"
+        )
+        result = extract_phase_sequence(text)
+        assert result is not None
+        assert result.ast["phases"][1]["schedule"] == self._EXT
+
+    def test_label_containing_ext_substring_is_not_ext(self) -> None:
+        text = (
+            "In the baseline phase, responses were reinforced on a VI 30-s "
+            "schedule. In the extended training phase, sessions continued."
+        )
+        result = extract_phase_sequence(text)
+        assert result is not None
+        assert result.ast["phases"][1]["schedule"] is None
+
+    def test_schedule_named_in_body_wins_over_label(self) -> None:
+        text = (
+            "In the baseline phase, responses were reinforced on a VI 30-s "
+            "schedule. In the extinction phase, an FT 30-s schedule "
+            "delivered food independently of responding."
+        )
+        result = extract_phase_sequence(text)
+        assert result is not None
+        sched = result.ast["phases"][1]["schedule"]
+        assert sched is not None and sched.get("domain") == "T"
