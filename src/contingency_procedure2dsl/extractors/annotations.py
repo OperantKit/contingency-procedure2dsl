@@ -100,11 +100,27 @@ def _is_species_false_positive(text: str, match: re.Match, species_raw: str) -> 
     The obvious case: "mouse clicks", "mouse cursor", "mouse button" where
     "mouse" refers to a computer pointing device, not an animal.
     """
+    tail = text[match.end(): match.end() + 40].lower()
     if species_raw.lower() == "mouse":
-        tail = text[match.end(): match.end() + 40].lower()
         if re.match(r"\s*(click|clicks|button|cursor|pointer|pad|wheel|over|\-)", tail):
             return True
+    # "a three-key pigeon chamber": the species word modifies an apparatus
+    # noun, so the words before it describe the apparatus, not the animal.
+    if re.match(r"\s*-?\s*(chamber|chambers|box|boxes|cage|cages|enclosure|panel)\b", tail):
+        return True
     return False
+
+
+_NONHUMAN_AHEAD = re.compile(
+    r"^(?:\s+[\w-]+){0,5}?\s+(" + "|".join(re.escape(s) for s in _SPECIES) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _modifies_nonhuman_species(text: str, match: re.Match) -> bool:
+    """True for "adult male White Carneaux pigeons": the human term is an
+    adjective on a nonhuman species within the next few words."""
+    return bool(_NONHUMAN_AHEAD.match(text[match.end(): match.end() + 60]))
 
 
 def extract_subject_annotations(text: str) -> list[ExtractResult]:
@@ -176,6 +192,9 @@ def extract_subject_annotations(text: str) -> list[ExtractResult]:
         term_raw = m.group(2).lower()
         population = _HUMAN_TERMS.get(term_raw, term_raw)
         n = _word_to_number(n_word)
+
+        if _modifies_nonhuman_species(text, m):
+            continue
 
         # Reject generic references: "the children", "our participants" etc.
         if n is None and n_word.lower() in _STRAIN_STOPWORDS:
@@ -388,19 +407,31 @@ def extract_component_annotations(text: str) -> list[ExtractResult]:
     # Require the SD name to be a concrete stimulus-like token (alphanumeric,
     # no trailing punctuation). Skip generic phrases like "those stimuli",
     # "his or her peers" etc.
+    # Quantifiers and numerals ("each color", "one stimulus", "another") pick
+    # out a stimulus without naming it; "SD" names the role, not the stimulus.
     _SD_STOPWORDS = {
         "the", "a", "an", "this", "that", "those", "these", "such", "other",
         "his", "her", "their", "its", "our", "your", "some", "any", "all",
+        "each", "every", "either", "neither", "both", "no", "another",
+        "one", "two", "three", "four", "five", "sd", "sds",
+    }
+    # A second token that is a function word ends the stimulus name:
+    # "trees and nontrees" → "trees".
+    _SD_TRAILING = {
+        "and", "or", "of", "to", "in", "on", "at", "with", "for", "but",
+        "was", "were", "is", "are", "than", "as", "by",
     }
     for m in re.finditer(
         r"in\s+the\s+presence\s+of\s+([A-Za-z][\w]*(?:\s+[A-Za-z][\w]*)?)",
         text, re.IGNORECASE,
     ):
         sd_raw = m.group(1).rstrip(",.;:").strip()
-        first_token = sd_raw.split()[0].lower() if sd_raw else ""
-        if not sd_raw or first_token in _SD_STOPWORDS:
+        tokens = sd_raw.split()
+        if not tokens or tokens[0].lower() in _SD_STOPWORDS:
             continue
-        sd_name = sd_raw.replace(" ", "_")
+        if len(tokens) == 2 and tokens[1].lower() in _SD_TRAILING:
+            tokens = tokens[:1]
+        sd_name = "_".join(tokens)
         results.append(ExtractResult(
             ast={"type": "Annotation", "keyword": "sd", "positional": sd_name},
             confidence=0.75,
