@@ -13,7 +13,8 @@ dependencies = []
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40"]
-test = ["pytest>=8", "pytest-cov"]
+# The round-trip tests compile the extracted AST back to prose.
+test = ["pytest>=8", "pytest-cov", "contingency-dsl2procedure>=0.1.1,<0.2"]
 
 [tool.hatch.version]
 source = "vcs"
