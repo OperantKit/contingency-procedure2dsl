@@ -37,6 +37,6 @@ The import name is `contingency_procedure2dsl`. `extract_schedule(text)` returns
 
 - [contingency-dsl](https://github.com/OperantKit/contingency-dsl): the language specification and AST schema the output follows
 - [contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure): the reverse direction, AST dict to Method-section text (`pip install git+https://github.com/OperantKit/contingency-dsl2procedure`)
-- [contingency-dsl-py](https://github.com/OperantKit/contingency-dsl-py): parser and formatter; `from_dict` + `format_program` turn the extracted Program into DSL source (`pip install contingency-dsl-py`)
-- [contingency-py](https://github.com/OperantKit/contingency-py): runs a schedule as a reinforcement schedule engine (`pip install contingency-py`)
+- [contingency-dsl-py](https://github.com/OperantKit/contingency-dsl-py): parser and formatter; `from_dict` + `format_program` turn the extracted Program into DSL source
+- [contingency-py](https://github.com/OperantKit/contingency-py): runs a schedule as a reinforcement schedule engine
 - [contingency-respondent-dsl](https://github.com/OperantKit/contingency-respondent-dsl): respondent (Pavlovian) procedure extension of the language (`pip install git+https://github.com/OperantKit/contingency-respondent-dsl`)
