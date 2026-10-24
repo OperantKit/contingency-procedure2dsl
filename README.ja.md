@@ -2,25 +2,31 @@
 
 :gb: [English README](README.md)
 
-学術論文の Method セクションから [contingency-dsl](https://github.com/OperantKit/contingency-dsl) AST を抽出する。
+contingency-procedure2dsl は、行動分析学の論文の方法セクション（Method 節）を英語でも日本語でも読み、強化スケジュール、そのパラメータ（切替遅延など）、被験体と装置の情報を [contingency-dsl](https://github.com/OperantKit/contingency-dsl) の形式の構造化データとして取り出します。公刊された手続きを集めるとき、論文の Method 節がプログラムと一致しているかを確かめるとき、論文から実験の設定を作り始めるときに使います。[OperantKit](https://github.com/OperantKit) の中では、スケジュールから Method 節の文章を書く [contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure) の逆の働きをします。
 
-[contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure)（DSL → 論文）の逆方向。
+**要点**
+
+- 規則に基づいて読むので、API キーもネットワークも要らず、同じ文章からはいつも同じ結果が出ます。
+- どの結果にも確信度と、読み取った元の箇所が付くので、何を読んだかを確かめられます。
+- 読めない文章からは、推測したスケジュールではなく `None` が返ります。
 
 ## インストール
+
+Python 3.11 以上が必要です。パッケージはまだ PyPI に登録されていないので、GitHub から入れます。
 
 ```bash
 pip install git+https://github.com/OperantKit/contingency-procedure2dsl
 ```
 
-ルールベースの抽出器は実行時の依存を持たない。任意の LLM フォールバックには `llm` extra（`anthropic`）が要る:
+規則に基づく抽出には依存パッケージがありません。読めない文章を言語モデルに送る任意の補助機能には `llm` の追加指定が必要で、`anthropic` のクライアントが入ります。
 
 ```bash
 pip install "contingency-procedure2dsl[llm] @ git+https://github.com/OperantKit/contingency-procedure2dsl"
 ```
 
-## 30 秒で動く例
+## 例
 
-Method 節の段落から、スケジュール・切替遅延 (COD)・被験体のアノテーションを抽出する（ルールベース。API キーもネットワークも不要）:
+Method 節の一節から、スケジュール、切替遅延、被験体の情報を取り出します。
 
 ```python
 from contingency_procedure2dsl import extract_all, extract_schedule
@@ -39,72 +45,58 @@ print([(p.ast["name"], p.ast["value"]) for p in report.params])  # [('COD', 2.0)
 print([(a.ast["keyword"], a.ast["positional"]) for a in report.annotations])
 # [('species', 'rat'), ('strain', 'Long-Evans'), ('n', 4), ('history', 'naive')]
 
-program = report.to_program()  # Program の AST dict: schedule + param_decls + program_annotations
+program = report.to_program()  # Program の AST の dict: schedule + param_decls + program_annotations
 print(program["schedule"] == schedule.ast)  # True
 
 print(extract_schedule("The procedure was similar to that of Experiment 1."))  # None
 ```
 
-Program の dict は contingency-dsl の AST スキーマに従う。DSL のソースとして書き出すには [contingency-dsl-py](https://github.com/OperantKit/contingency-dsl-py) の `contingency_dsl.from_dict` と `format_program` に渡す（`pip install contingency-dsl-py`）。この例では `@species("rat")` … `COD = 2s` と `Conc(VI30s, VI60s)` が得られる。スケジュールを動かすには [contingency-py](https://github.com/OperantKit/contingency-py) を使う（`pip install contingency-py`）。
+この一節では、スケジュールの確信度は `0.85` で、130〜193 文字目から読み取られています（`schedule.confidence`、`schedule.span`）。program の辞書は contingency-dsl の AST スキーマに従います。contingency-dsl のテキストとして出力するには [contingency-dsl-py](https://github.com/OperantKit/contingency-dsl-py) の `from_dict` と `format_program` に渡し、実行するには [contingency-py](https://github.com/OperantKit/contingency-py) を使います。
 
-## 自作の 50 行では足りない理由
+## 読めるもの
 
-`VI 30-s` を拾う正規表現は、Method 節が述べているそれ以外の情報（スケジュールの組み合わせ方、切替遅延、被験体、そのスケジュールがどのフェーズに属するか）を落とす:
+- 単一のスケジュール FR、VR、RR、FI、VI、RI、FT、VT、RT と、EXT・CRF
+- 複合スケジュール: `Conc`、`Alt`、`Conj`、`Chain`、`Tand`、`Mult`、`Mix`、`Overlay`、`Interpolate`
+- DRL、DRH、DRO、累進比率、ラグ、パーセンタイルの各スケジュールと、二次スケジュール
+- Sidman 型回避、弁別回避（固定型と反応終了型）、逃避
+- 調整スケジュール（遅延・比率・量）と連動スケジュール
+- 見本合わせ（同一見本合わせと恣意的見本合わせ）と go/no-go
+- レスポンデントの手続き: 対提示、消去、随伴性、CS のみ、US のみ
+- スケジュールに付く制限時間、タイムアウト、反応コスト
+- パラメータ: 切替遅延、制限時間、ブラックアウト、強化遅延、固定比率の切替
+- 被験体・装置・測定・手続き・成分のアノテーション（`@species`、`@n`、`@history`、`@operandum` など）
 
-- **順序付きの抽出器.** `extract_all` はレスポンデント手続き、試行型の手続き（見本合わせ、go/no-go）、二次スケジュール、修飾子（DRL, DRH, DRO, PR, Lag, パーセンタイル）、嫌悪性の手続き（Sidman 型回避、弁別回避、逃避）、罰の重畳、調整スケジュールとインターロッキングスケジュール、複合スケジュール、Limited Hold、単一スケジュールの順に試し、確信度が最も高い候補を採る。Limited Hold・タイムアウト・反応コストは末端のスケジュールに付与する。
-- **パラメータとアノテーション.** 切替遅延 (COD)・Limited Hold・ブラックアウト・強化遅延・固定比率の切替要件 (FRCO) は `ParamDecl` ノードになる。5 つのアノテーション抽出器（subjects, apparatus, measurement, procedure, component）が `@species`・`@n`・`@history`・`@operandum` などを作り、被験体についての重複した記述は 1 つの値にまとめる。
-- **生成器との往復変換.** 往復変換のテストモジュールにある 109 件のテストが、AST を [contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure) で Method 本文に書き出し、このパッケージで元に戻せることを確かめている。
-- **フェーズと実験.** `extract_phase_sequence` は「ベースライン／消去」のような本文を `PhaseSequence` に分け、`extract_paper` は複数実験の論文を見出しごとの `Experiment` を持つ `Paper` に分ける。英語と日本語の見出しを認識する。
-- **確信度と位置.** 結果にはすべて確信度・一致した本文・文字位置が付くので、何を読んだかを査読者が確かめられる。どのパターンにも当たらない本文はスケジュールを推測せず `None` を返す。
-- **任意の LLM フォールバック.** `extract_all_with_fallback` は、ルールベースでスケジュールが見つからないか確信度が閾値（既定 0.5）未満のときだけ Anthropic API を呼ぶ。`llm` extra と API キーが要る。応答の解釈はスタブのクライアントで試験しており、実際の API に対しては試験していない。
+`extract_phase_sequence` は複数のフェーズ（例えば獲得と消去）を書いた文章をフェーズの並びに分け、`extract_paper` は複数の実験を含む論文を実験ごとに分けます。英語と日本語の見出しと言い回しを認識します。
 
-## 使い方
+## 任意の言語モデルによる補助
 
-```python
-from contingency_procedure2dsl import extract_all_with_fallback, extract_schedule
+`extract_all_with_fallback(text)` はまず規則で読み、スケジュールが見つからないか確信度がしきい値（既定は 0.5）より低いときだけ、文章を Anthropic の API に送ります。`llm` の追加指定と、環境変数 `ANTHROPIC_API_KEY`（または `api_key=`）の API キーが必要です。上の例の一節に同じ呼び出しをしても、規則の確信度が十分なので API には届きません。`contingency_procedure2dsl.extractors.llm` の `extract_schedule_llm` は API を直接呼びます。
 
-text = "Responses were reinforced under a concurrent VI 30-s VI 60-s schedule."
-result = extract_schedule(text)
-print(result.ast)
-# {'type': 'Compound', 'combinator': 'Conc', 'components': [{'type': 'Atomic', 'dist': 'V', 'domain': 'I', 'value': 30.0, 'time_unit': 's'}, {'type': 'Atomic', 'dist': 'V', 'domain': 'I', 'value': 60.0, 'time_unit': 's'}]}
-print(result.confidence)  # 0.85
+## 制限
 
-# ここでは Layer 1 の確信度が十分なので、LLM フォールバックは呼ばれない。
-report = extract_all_with_fallback(text)
-print(report.primary_schedule.ast == result.ast)  # True
+スケジュールを取り戻せるのは、文章にそれが書かれているときだけです。次の構文は contingency-dsl2procedure が曖昧に、または不完全に書くため、取り戻せません。
+
+- 状態を持つ成分を含む複合スケジュール（例: `Mult(Interlocking, EXT)`）: その成分が文章から抜けています。
+- 成分の 1 つが嫌悪性の手続きか、`let` で名前を付けたスケジュールである複合スケジュール: その成分が文章から抜けています。
+- 3 段以上入れ子になった複合スケジュール: 平たくした文章が曖昧なので、1 段の複合スケジュールとして読まれます。
+- `let` の束縛の参照（`let av = Sidman(...); Chain(FR 10, av)`）: 文章では束縛したスケジュールがそのまま書かれるので、名前が失われます。
+
+言語モデルによる補助のテストは代わりのクライアントで行っていて、実際の API に対しては行っていません。結果を使う前に `confidence`、`source_text`、`warnings` を確かめてください。
+
+## 開発に参加する人へ
+
+往復のテストには contingency-dsl2procedure も必要です。
+
+```bash
+git clone https://github.com/OperantKit/contingency-procedure2dsl
+cd contingency-procedure2dsl
+python -m venv .venv
+.venv/bin/python -m pip install -e . pytest pytest-cov git+https://github.com/OperantKit/contingency-dsl2procedure
+.venv/bin/python -m pytest -q
 ```
 
-ルールで読めない本文は、`extract_all_with_fallback(text)`（または `contingency_procedure2dsl.extractors.llm` の `extract_schedule_llm(text)`）が Anthropic API に送る。これには `pip install "contingency-procedure2dsl[llm] @ git+https://github.com/OperantKit/contingency-procedure2dsl"` と環境変数 `ANTHROPIC_API_KEY`（または `api_key=`）が要る。
+言語モデルのテストは代わりの `anthropic` モジュールを使うので、API キーは要りません。この README と `README.md` の `python` ブロックは、すべて `tests/test_readme_examples.py` で実行されます。AI のコーディングエージェント向けの説明は [AGENTS.md](AGENTS.md) にあります。
 
-## カバレッジ
+## 引用とライセンス
 
-Layer 1（ルールベース）は、[contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure) が
-曖昧さなく散文として emit する限り、[contingency-dsl](https://github.com/OperantKit/contingency-dsl) の
-全てのサーフェスをカバーする:
-
-- Atomic スケジュール: F/V/R × R/I/T（FR, VR, RR, FI, VI, RI, FT, VT, RT）
-- Special: EXT, CRF
-- 複合スケジュール: Conc, Alt, Conj, Chain, Tand, Mult, Mix, Overlay, Interpolate
-  （構成要素としての EXT/CRF も認識）
-- Modifier: DRL, DRH, DRO, PR, Lag, Pctl（英語・日本語変種）
-- SecondOrder
-- Aversive: Sidman, DiscrimAv（fixed / response-terminated）, Escape
-- Stateful: AdjustingSchedule（delay / ratio / amount）, InterlockingSchedule
-- TrialBased: MTS（identity / arbitrary）, GoNoGo
-- Respondent: Pair 各種, Extinction, Contingency, CS-only, US-only
-- スケジュール属性: limitedHold, timeout, responseCost
-- パラメータ: COD, LH, BO, RD, FRCO
-- アノテーション: subjects, apparatus, measurement, procedure, component
-
-既知の制限（paper 側の散文が曖昧、またはコンポーネントを省略するため、
-reader では元の AST を復元できない）:
-
-- 構成要素に stateful スケジュールを持つ複合（例: `Mult(Interlocking, EXT)`）:
-  stateful 部分の散文表現が現状では空となる。
-- 構成要素にアヴァーシブ primitive あるいは let-binding 識別子を持つ複合:
-  当該コンポーネントが散文から省略される。
-- 深さ 3 以上のネスト複合: 平坦化された散文から構造を一意に復元できず、
-  フラットな atomic 複合として回収される。
-- Let-binding 参照（`let av = Sidman(...); Chain(FR 10, av)`）:
-  paper が束縛を inline 展開するため識別子参照が失われる。
-
+このパッケージを引用するときは [CITATION.cff](CITATION.cff) を使ってください。MIT License です。[LICENSE](LICENSE) を参照してください。

@@ -18,6 +18,17 @@ To write Method text from an AST, use contingency-dsl2procedure. To parse DSL so
 - Every result carries a confidence score, the matched text, and its character span; unmatched text returns `None` rather than a guessed schedule.
 - 109 round-trip tests compile ASTs to prose with contingency-dsl2procedure and check that they are recovered.
 
+## Why not a 50-line hand-written regex?
+
+A regular expression that finds `VI 30-s` loses everything else a Method section states — how schedules are combined, the changeover delay, who the subjects were, and which phase a schedule belongs to:
+
+- **Ordered extractors.** `extract_all` tries respondent procedures, trial-based procedures (matching-to-sample, go/no-go), second-order schedules, modifiers (DRL, DRH, DRO, PR, Lag, percentile), aversive procedures (Sidman avoidance, discriminated avoidance, escape), punishment overlays, adjusting and interlocking schedules, compound schedules, limited hold, and atomic schedules in that order, and keeps the highest-confidence candidate. Limited hold, timeout, and response cost are attached to the leaf schedule.
+- **Parameters and annotations.** Changeover delay, limited hold, blackout, reinforcement delay, and fixed-ratio changeover become `ParamDecl` nodes; five annotation extractors (subjects, apparatus, measurement, procedure, component) produce `@species`, `@n`, `@history`, `@operandum`, and similar annotations, with duplicate subject facts collapsed to one value.
+- **Round trip with the generator.** 109 tests in the round-trip modules write an AST as Method text with [contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure) and check that this package recovers it.
+- **Phases and experiments.** `extract_phase_sequence` splits "baseline / extinction" style text into a `PhaseSequence`, and `extract_paper` splits multi-experiment papers into a `Paper` with one `Experiment` per heading. English and Japanese headings are recognized.
+- **Confidence and spans.** Every result carries a confidence score, the matched source text, and its character span, so a reviewer can check what was read; text that matches no pattern returns `None` instead of a guessed schedule.
+- **Optional LLM fallback.** `extract_all_with_fallback` calls the Anthropic API only when no rule-based schedule is found or its confidence is below a threshold (default 0.5). It needs the `llm` extra and an API key; the response parsing is tested with a stubbed client, not against the live API.
+
 ## Do not
 
 - Do not treat an `ExtractResult` as ground truth without looking at `confidence`, `source_text`, and `warnings`; the README lists constructs whose prose is ambiguous (deeply nested compounds, stateful components inside compounds, let-binding references).
