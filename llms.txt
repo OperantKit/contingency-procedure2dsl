@@ -30,7 +30,7 @@ The import name is `contingency_procedure2dsl`. `extract_schedule(text)` returns
 
 ## Docs
 
-- [README](https://github.com/OperantKit/contingency-procedure2dsl/blob/main/README.md): install, 30-second example, why not to hand-roll a regex, coverage and known limitations
+- [README](https://github.com/OperantKit/contingency-procedure2dsl/blob/main/README.md): install, example, why not to hand-roll a regex, coverage and known limitations
 - [AGENTS.md](https://github.com/OperantKit/contingency-procedure2dsl/blob/main/AGENTS.md): when to use this package and what not to do
 
 ## Related packages
